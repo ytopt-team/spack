@@ -440,7 +440,7 @@ class AutotoolsPackage(PackageBase):
 
         # Create a list of pairs. Each pair includes a configuration
         # option and whether or not that option is activated
-        variant_desc = self.variants[name][0]
+        variant_desc, _ = self.variants[name]
         if set(variant_desc.values) == set((True, False)):
             # BoolValuedVariant carry information about a single option.
             # Nonetheless, for uniformity of treatment we'll package them
