@@ -62,6 +62,17 @@ reserved_names = ['patches', 'dev_path']
 _patch_order_index = 0
 
 
+def make_when_specs(value):
+    """Create a list of ``Spec`` that indicate when a directive applies.
+
+    See ``make_when_spec`` for details."""
+    # explicitly enumerate types of non-iterables that we accept
+    # because there is no good test for iterable
+    if value is None or isinstance(value, (spack.spec.Spec, str, bool)):
+        value = [value]
+    return [make_when_spec(v) for v in value]
+
+
 def make_when_spec(value):
     """Create a ``Spec`` that indicates when a directive should be applied.
 
@@ -324,56 +335,57 @@ def version(ver, checksum=None, **kwargs):
 
 
 def _depends_on(pkg, spec, when=None, type=default_deptype, patches=None):
-    when_spec = make_when_spec(when)
-    if not when_spec:
-        return
+    when_specs = make_when_specs(when)
+    for when_spec in when_specs:
+        if not when_spec:
+            continue
 
-    dep_spec = spack.spec.Spec(spec)
-    if pkg.name == dep_spec.name:
-        raise CircularReferenceError(
-            "Package '%s' cannot depend on itself." % pkg.name)
+        dep_spec = spack.spec.Spec(spec)
+        if pkg.name == dep_spec.name:
+            raise CircularReferenceError(
+                "Package '%s' cannot depend on itself." % pkg.name)
 
-    type = canonical_deptype(type)
-    conditions = pkg.dependencies.setdefault(dep_spec.name, {})
+        type = canonical_deptype(type)
+        conditions = pkg.dependencies.setdefault(dep_spec.name, {})
 
-    # call this patches here for clarity -- we want patch to be a list,
-    # but the caller doesn't have to make it one.
+        # call this patches here for clarity -- we want patch to be a list,
+        # but the caller doesn't have to make it one.
 
-    # Note: we cannot check whether a package is virtual in a directive
-    # because directives are run as part of class instantiation, and specs
-    # instantiate the package class as part of the `virtual` check.
-    # To be technical, specs only instantiate the package class as part of the
-    # virtual check if the provider index hasn't been created yet.
-    # TODO: There could be a cache warming strategy that would allow us to
-    # ensure `Spec.virtual` is a valid thing to call in a directive.
-    # For now, we comment out the following check to allow for virtual packages
-    # with package files.
-    # if patches and dep_spec.virtual:
-    #     raise DependencyPatchError("Cannot patch a virtual dependency.")
+        # Note: we cannot check whether a package is virtual in a directive
+        # because directives are run as part of class instantiation, and specs
+        # instantiate the package class as part of the `virtual` check.
+        # To be technical, specs only instantiate the package class as part of the
+        # virtual check if the provider index hasn't been created yet.
+        # TODO: There could be a cache warming strategy that would allow us to
+        # ensure `Spec.virtual` is a valid thing to call in a directive.
+        # For now, we comment out the following check to allow for virtual packages
+        # with package files.
+        # if patches and dep_spec.virtual:
+        #     raise DependencyPatchError("Cannot patch a virtual dependency.")
 
-    # ensure patches is a list
-    if patches is None:
-        patches = []
-    elif not isinstance(patches, (list, tuple)):
-        patches = [patches]
+        # ensure patches is a list
+        if patches is None:
+            patches = []
+        elif not isinstance(patches, (list, tuple)):
+            patches = [patches]
 
-    # auto-call patch() directive on any strings in patch list
-    patches = [patch(p) if isinstance(p, six.string_types) else p
-               for p in patches]
-    assert all(callable(p) for p in patches)
+        # auto-call patch() directive on any strings in patch list
+        patches = [patch(p) if isinstance(p, six.string_types) else p
+                   for p in patches]
+        assert all(callable(p) for p in patches)
 
-    # this is where we actually add the dependency to this package
-    if when_spec not in conditions:
-        dependency = Dependency(pkg, dep_spec, type=type)
-        conditions[when_spec] = dependency
-    else:
-        dependency = conditions[when_spec]
-        dependency.spec.constrain(dep_spec, deps=False)
-        dependency.type |= set(type)
+        # this is where we actually add the dependency to this package
+        if when_spec not in conditions:
+            dependency = Dependency(pkg, dep_spec, type=type)
+            conditions[when_spec] = dependency
+        else:
+            dependency = conditions[when_spec]
+            dependency.spec.constrain(dep_spec, deps=False)
+            dependency.type |= set(type)
 
-    # apply patches to the dependency
-    for execute_patch in patches:
-        execute_patch(dependency)
+        # apply patches to the dependency
+        for execute_patch in patches:
+            execute_patch(dependency)
 
 
 @directive('conflicts')
@@ -398,13 +410,14 @@ def conflicts(conflict_spec, when=None, msg=None):
     """
     def _execute_conflicts(pkg):
         # If when is not specified the conflict always holds
-        when_spec = make_when_spec(when)
-        if not when_spec:
-            return
+        when_specs = make_when_specs(when)
+        for when_spec in when_specs:
+            if not when_spec:
+                continue
 
-        # Save in a list the conflicts and the associated custom messages
-        when_spec_list = pkg.conflicts.setdefault(conflict_spec, [])
-        when_spec_list.append((when_spec, msg))
+            # Save in a list the conflicts and the associated custom messages
+            when_spec_list = pkg.conflicts.setdefault(conflict_spec, [])
+            when_spec_list.append((when_spec, msg))
     return _execute_conflicts
 
 
@@ -414,8 +427,9 @@ def depends_on(spec, when=None, type=default_deptype, patches=None):
 
     Args:
         spec (Spec or str): the package and constraints depended on
-        when (Spec or str): when the dependent satisfies this, it has
-            the dependency represented by ``spec``
+        when (Spec or str, or list of Spec or str): when the dependent
+            satisfies any element of this list, it has the dependency
+            represented by ``spec``
         type (str or tuple of str): str or tuple of legal Spack deptypes
         patches (obj or list): single result of ``patch()`` directive, a
             ``str`` to be passed to ``patch``, or a list of these
@@ -448,12 +462,13 @@ def extends(spec, type=('build', 'run'), **kwargs):
     """
     def _execute_extends(pkg):
         when = kwargs.get('when')
-        when_spec = make_when_spec(when)
-        if not when_spec:
-            return
+        when_specs = make_when_specs(when)
+        for when_spec in when_specs:
+            if not when_spec:
+                continue
 
-        _depends_on(pkg, spec, when=when, type=type)
-        pkg.extendees[spec] = (spack.spec.Spec(spec), kwargs)
+            _depends_on(pkg, spec, when=when_spec, type=type)
+            pkg.extendees[spec] = (spack.spec.Spec(spec), kwargs)
     return _execute_extends
 
 
@@ -465,23 +480,24 @@ def provides(*specs, **kwargs):
     """
     def _execute_provides(pkg):
         when = kwargs.get('when')
-        when_spec = make_when_spec(when)
-        if not when_spec:
-            return
+        when_specs = make_when_specs(when)
+        for when_spec in when_specs:
+            if not when_spec:
+                continue
 
-        # ``when`` specs for ``provides()`` need a name, as they are used
-        # to build the ProviderIndex.
-        when_spec.name = pkg.name
+            # ``when`` specs for ``provides()`` need a name, as they are used
+            # to build the ProviderIndex.
+            when_spec.name = pkg.name
 
-        for string in specs:
-            for provided_spec in spack.spec.parse(string):
-                if pkg.name == provided_spec.name:
-                    raise CircularReferenceError(
-                        "Package '%s' cannot provide itself.")
+            for string in specs:
+                for provided_spec in spack.spec.parse(string):
+                    if pkg.name == provided_spec.name:
+                        raise CircularReferenceError(
+                            "Package '%s' cannot provide itself.")
 
-                if provided_spec not in pkg.provided:
-                    pkg.provided[provided_spec] = set()
-                pkg.provided[provided_spec].add(when_spec)
+                    if provided_spec not in pkg.provided:
+                        pkg.provided[provided_spec] = set()
+                    pkg.provided[provided_spec].add(when_spec)
     return _execute_provides
 
 
@@ -516,28 +532,29 @@ def patch(url_or_filename, level=1, when=None, working_dir=".", **kwargs):
                 'Patches are not allowed in {0}: package has no code.'.
                 format(pkg.name))
 
-        when_spec = make_when_spec(when)
-        if not when_spec:
-            return
+        when_specs = make_when_specs(when)
+        for when_spec in when_specs:
+            if not when_spec:
+                continue
 
-        # If this spec is identical to some other, then append this
-        # patch to the existing list.
-        cur_patches = pkg_or_dep.patches.setdefault(when_spec, [])
+            # If this spec is identical to some other, then append this
+            # patch to the existing list.
+            cur_patches = pkg_or_dep.patches.setdefault(when_spec, [])
 
-        global _patch_order_index
-        ordering_key = (pkg.name, _patch_order_index)
-        _patch_order_index += 1
+            global _patch_order_index
+            ordering_key = (pkg.name, _patch_order_index)
+            _patch_order_index += 1
 
-        if '://' in url_or_filename:
-            patch = spack.patch.UrlPatch(
-                pkg, url_or_filename, level, working_dir,
-                ordering_key=ordering_key, **kwargs)
-        else:
-            patch = spack.patch.FilePatch(
-                pkg, url_or_filename, level, working_dir,
-                ordering_key=ordering_key)
+            if '://' in url_or_filename:
+                patch = spack.patch.UrlPatch(
+                    pkg, url_or_filename, level, working_dir,
+                    ordering_key=ordering_key, **kwargs)
+            else:
+                patch = spack.patch.FilePatch(
+                    pkg, url_or_filename, level, working_dir,
+                    ordering_key=ordering_key)
 
-        cur_patches.append(patch)
+            cur_patches.append(patch)
 
     return _execute_patch
 
@@ -629,16 +646,16 @@ def variant(
     description = str(description).strip()
 
     def _execute_variant(pkg):
-        when_spec = make_when_spec(when)
-
         if not re.match(spack.spec.identifier_re, name):
             directive = 'variant'
             msg = "Invalid variant name in {0}: '{1}'"
             raise DirectiveError(directive, msg.format(pkg.name, name))
 
+        when_specs = [ws for ws in make_when_specs(when) if ws]
+
         pkg.variants[name] = (spack.variant.Variant(
             name, default, description, values, multi, validator
-        ), when_spec)
+        ), when_specs)
     return _execute_variant
 
 
@@ -661,36 +678,37 @@ def resource(**kwargs):
     """
     def _execute_resource(pkg):
         when = kwargs.get('when')
-        when_spec = make_when_spec(when)
-        if not when_spec:
-            return
+        when_specs = make_when_specs(when)
+        for when_spec in when_specs:
+            if not when_spec:
+                continue
 
-        destination = kwargs.get('destination', "")
-        placement = kwargs.get('placement', None)
+            destination = kwargs.get('destination', "")
+            placement = kwargs.get('placement', None)
 
-        # Check if the path is relative
-        if os.path.isabs(destination):
-            message = ('The destination keyword of a resource directive '
-                       'can\'t be an absolute path.\n')
-            message += "\tdestination : '{dest}\n'".format(dest=destination)
-            raise RuntimeError(message)
+            # Check if the path is relative
+            if os.path.isabs(destination):
+                message = ('The destination keyword of a resource directive '
+                           'can\'t be an absolute path.\n')
+                message += "\tdestination : '{dest}\n'".format(dest=destination)
+                raise RuntimeError(message)
 
-        # Check if the path falls within the main package stage area
-        test_path = 'stage_folder_root'
-        normalized_destination = os.path.normpath(
-            os.path.join(test_path, destination)
-        )  # Normalized absolute path
+            # Check if the path falls within the main package stage area
+            test_path = 'stage_folder_root'
+            normalized_destination = os.path.normpath(
+                os.path.join(test_path, destination)
+            )  # Normalized absolute path
 
-        if test_path not in normalized_destination:
-            message = ("The destination folder of a resource must fall "
-                       "within the main package stage directory.\n")
-            message += "\tdestination : '{dest}'\n".format(dest=destination)
-            raise RuntimeError(message)
+            if test_path not in normalized_destination:
+                message = ("The destination folder of a resource must fall "
+                           "within the main package stage directory.\n")
+                message += "\tdestination : '{dest}'\n".format(dest=destination)
+                raise RuntimeError(message)
 
-        resources = pkg.resources.setdefault(when_spec, [])
-        name = kwargs.get('name')
-        fetcher = from_kwargs(**kwargs)
-        resources.append(Resource(name, fetcher, destination, placement))
+            resources = pkg.resources.setdefault(when_spec, [])
+            name = kwargs.get('name')
+            fetcher = from_kwargs(**kwargs)
+            resources.append(Resource(name, fetcher, destination, placement))
     return _execute_resource
 
 
