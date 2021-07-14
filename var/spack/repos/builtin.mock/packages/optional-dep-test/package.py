@@ -26,7 +26,5 @@ class OptionalDepTest(Package):
     depends_on('e', when='%clang@34:40')
 
     depends_on('f', when='+f')
-    depends_on('g', when='^f')
-    depends_on('mpi', when='^g')
-
-    depends_on('mpi', when='+mpi')
+    depends_on('g', when=['^f'])
+    depends_on('mpi', when=['^g', '+mpi'])

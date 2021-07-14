@@ -748,11 +748,13 @@ class TestConcretize(object):
 
     @pytest.mark.parametrize('spec_str,expected,unexpected', [
         ('conditional-variant-pkg@1.0',
-         [], ['version_based', 'variant_based']),
+         ['two_whens'], ['version_based', 'variant_based']),
         ('conditional-variant-pkg@2.0',
-         ['version_based', 'variant_based'], []),
+         ['version_based', 'variant_based'], ['two_whens']),
         ('conditional-variant-pkg@2.0~version_based',
-         ['version_based'], ['variant_based']),
+         ['version_based'], ['variant_based', 'two_whens']),
+        ('conditional-variant-pkg@2.0+version_based+variant_based',
+         ['version_based', 'variant_based', 'two_whens'], [])
     ])
     def test_conditional_variants(self, spec_str, expected, unexpected):
         s = Spec(spec_str).concretized()
@@ -766,6 +768,7 @@ class TestConcretize(object):
         'conditional-variant-pkg@1.0~version_based',
         'conditional-variant-pkg@1.0+version_based',
         'conditional-variant-pkg@2.0~version_based+variant_based',
+        'conditional-variant-pkg@2.0+version_based~variant_based+two_whens',
     ])
     def test_conditional_variants_fail(self, bad_spec):
         with pytest.raises(
