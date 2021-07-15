@@ -748,13 +748,17 @@ class TestConcretize(object):
 
     @pytest.mark.parametrize('spec_str,expected,unexpected', [
         ('conditional-variant-pkg@1.0',
-         ['two_whens'], ['version_based', 'variant_based']),
+         ['two_whens', 'two_declarations'],
+         ['version_based', 'variant_based']),
         ('conditional-variant-pkg@2.0',
-         ['version_based', 'variant_based'], ['two_whens']),
+         ['version_based', 'variant_based'],
+         ['two_whens', 'two_declarations']),
         ('conditional-variant-pkg@2.0~version_based',
-         ['version_based'], ['variant_based', 'two_whens']),
+         ['version_based'],
+         ['variant_based', 'two_whens', 'two_declarations']),
         ('conditional-variant-pkg@2.0+version_based+variant_based',
-         ['version_based', 'variant_based', 'two_whens'], [])
+         ['version_based', 'variant_based', 'two_whens', 'two_declarations'],
+         [])
     ])
     def test_conditional_variants(self, spec_str, expected, unexpected):
         s = Spec(spec_str).concretized()
@@ -765,17 +769,18 @@ class TestConcretize(object):
             assert not s.satisfies('%s=*' % var)
 
     @pytest.mark.parametrize('bad_spec', [
-        'conditional-variant-pkg@1.0~version_based',
-        'conditional-variant-pkg@1.0+version_based',
-        'conditional-variant-pkg@2.0~version_based+variant_based',
-        'conditional-variant-pkg@2.0+version_based~variant_based+two_whens',
+        '@1.0~version_based',
+        '@1.0+version_based',
+        '@2.0~version_based+variant_based',
+        '@2.0+version_based~variant_based+two_whens',
+        '@2.0+version_based~variant_based+two_declarations',
     ])
     def test_conditional_variants_fail(self, bad_spec):
         with pytest.raises(
                 (spack.error.UnsatisfiableSpecError,
                  vt.InvalidVariantForSpecError)
         ):
-            _ = Spec(bad_spec).concretized()
+            _ = Spec('conditional-variant-pkg' + bad_spec).concretized()
 
     @pytest.mark.parametrize('spec_str,expected,unexpected', [
         ('py-extension3 ^python@3.5.1', [], ['py-extension1']),

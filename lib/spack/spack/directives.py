@@ -652,6 +652,18 @@ def variant(
             raise DirectiveError(directive, msg.format(pkg.name, name))
 
         when_specs = [ws for ws in make_when_specs(when) if ws]
+        variant_desc = spack.variant.Variant(name, default, description,
+                                             values, multi, validator)
+
+        if name in pkg.variants:
+            orig_variant, orig_when = pkg.variants[name]
+            if variant_desc != orig_variant:
+                msg = ("multiply defined variant %s " % name +
+                       "has incompatible declarations. Only when-clauses " +
+                       "may differ between variant declarations.")
+                raise DirectiveError(msg)
+
+            when_specs += orig_when
 
         pkg.variants[name] = (spack.variant.Variant(
             name, default, description, values, multi, validator

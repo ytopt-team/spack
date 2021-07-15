@@ -20,5 +20,8 @@ class ConditionalVariantPkg(Package):
     variant('two_whens', default=False, when=['@1.0', '+variant_based'],
             description="A variant conditional on one of two conditions")
 
+    variant('two_declarations', default=False, when='@1.0')
+    variant('two_declarations', default=False, when='+variant_based')
+
     def install(self, spec, prefix):
         assert False
