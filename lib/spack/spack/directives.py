@@ -54,7 +54,7 @@ else:
     from collections import Sequence
 
 
-__all__ = []
+__all__ = ['DirectiveError', 'DirectiveMeta']
 
 #: These are variant names used by Spack internally; packages can't use them
 reserved_names = ['patches', 'dev_path']
@@ -96,7 +96,7 @@ def make_when_spec(value):
     as part of concretization.
 
     Arguments:
-        value (Spec or bool): a conditional Spec or a constant ``bool``
+        value (spack.spec.Spec or bool): a conditional Spec or a constant ``bool``
            value indicating when a directive should be applied.
 
     """
@@ -198,11 +198,15 @@ class DirectiveMeta(type):
 
         Here's an example directive:
 
+        .. code-block:: python
+
             @directive(dicts='versions')
             version(pkg, ...):
                 ...
 
         This directive allows you write:
+
+        .. code-block:: python
 
             class Foo(Package):
                 version(...)
@@ -404,8 +408,8 @@ def conflicts(conflict_spec, when=None, msg=None):
         conflicts('%intel', when='+foo')
 
     Args:
-        conflict_spec (Spec): constraint defining the known conflict
-        when (Spec): optional constraint that triggers the conflict
+        conflict_spec (spack.spec.Spec): constraint defining the known conflict
+        when (spack.spec.Spec): optional constraint that triggers the conflict
         msg (str): optional user defined message
     """
     def _execute_conflicts(pkg):
@@ -426,13 +430,13 @@ def depends_on(spec, when=None, type=default_deptype, patches=None):
     """Creates a dict of deps with specs defining when they apply.
 
     Args:
-        spec (Spec or str): the package and constraints depended on
-        when (Spec or str, or list of Spec or str): when the dependent
-            satisfies any element of this list, it has the dependency
-            represented by ``spec``
-        type (str or tuple of str): str or tuple of legal Spack deptypes
-        patches (obj or list): single result of ``patch()`` directive, a
-            ``str`` to be passed to ``patch``, or a list of these
+        spec (spack.spec.Spec or str): the package and constraints depended on
+        when (spack.spec.Spec, str, or list): when the dependent satisfies
+            this Spec/str or any Spec/str in this list, it has the
+            dependency represented by ``spec``
+        type (str or tuple): str or tuple of legal Spack deptypes
+        patches (typing.Callable or list): single result of ``patch()``
+            directive, a ``str`` to be passed to ``patch``, or a list of these
 
     This directive is to be used inside a Package definition to declare
     that the package requires other packages to be built first.
@@ -511,7 +515,7 @@ def patch(url_or_filename, level=1, when=None, working_dir=".", **kwargs):
     Args:
         url_or_filename (str): url or relative filename of the patch
         level (int): patch level (as in the patch shell command)
-        when (Spec): optional anonymous spec that specifies when to apply
+        when (spack.spec.Spec): optional anonymous spec that specifies when to apply
             the patch
         working_dir (str): dir to change to before applying
 
@@ -577,16 +581,16 @@ def variant(
             specified otherwise the default will be False for a boolean
             variant and 'nothing' for a multi-valued variant
         description (str): description of the purpose of the variant
-        values (tuple or callable): either a tuple of strings containing the
+        values (tuple or typing.Callable): either a tuple of strings containing the
             allowed values, or a callable accepting one value and returning
             True if it is valid
         multi (bool): if False only one value per spec is allowed for
             this variant
-        validator (callable): optional group validator to enforce additional
-            logic. It receives the package name, the variant name and a tuple
-            of values and should raise an instance of SpackError if the group
-            doesn't meet the additional constraints
-        when (Spec): optional condition on which the variant applies
+        validator (typing.Callable): optional group validator to enforce
+            additional logic. It receives the package name, the variant name
+            and a tuple of values and should raise an instance of SpackError if
+            the group doesn't meet the additional constraints
+        when (spack.spec.Spec): optional condition on which the variant applies
 
     Raises:
         DirectiveError: if arguments passed to the directive are invalid
