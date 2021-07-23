@@ -274,15 +274,11 @@ class Axom(CachedCMakePackage, CudaPackage):
                 # Fix for working around CMake adding implicit link directories
                 # returned by the BlueOS compilers to link executables with
                 # non-system default stdlib
-                _gcc_prefix = "/usr/tce/packages/gcc/gcc-4.9.3/lib64"
+                _gcc_prefix = "/usr/tce/packages/gcc/gcc-4.9.3"
                 if os.path.exists(_gcc_prefix):
-                    _gcc_prefix2 = pjoin(
-                        _gcc_prefix,
-                        "gcc/powerpc64le-unknown-linux-gnu/4.9.3")
-                    _link_dirs = "{0};{1}".format(_gcc_prefix, _gcc_prefix2)
                     entries.append(cmake_cache_string(
                         "BLT_CMAKE_IMPLICIT_LINK_DIRECTORIES_EXCLUDE",
-                        _link_dirs))
+                        _gcc_prefix))
 
         return entries
 
