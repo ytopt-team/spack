@@ -97,8 +97,7 @@ dependency_holds(Package, Dependency, Type) :-
   dependency_condition(ID, Package, Dependency),
   dependency_type(ID, Type),
   condition_holds(ID),
-  not external(Package),
-  not concrete(Package).
+  build(Package).
 
 % We cut off dependencies of externals (as we don't really know them).
 % Don't impose constraints on dependencies that don't exist.
@@ -140,10 +139,10 @@ path(Parent, Descendant) :- path(Parent, A), depends_on(A, Descendant).
 % Conflicts
 %-----------------------------------------------------------------------------
 :- node(Package),
-   not external(Package),
    conflict(Package, TriggerID, ConstraintID),
    condition_holds(TriggerID),
-   condition_holds(ConstraintID).
+   condition_holds(ConstraintID),
+   not external(Package).  % ignore conflicts for externals
 
 #defined conflict/3.
 
@@ -381,7 +380,11 @@ external_conditions_hold(Package, LocalIndex) :-
 variant_set(Package, Variant) :- variant_set(Package, Variant, _).
 
 % A variant cannot have a value that is not also a possible value
-:- variant_value(Package, Variant, Value), not variant_possible_value(Package, Variant, Value).
+% This only applies to packages we need to build -- concrete packages may
+% have been built w/different variants from older/different package versions.
+:- variant_value(Package, Variant, Value),
+   not variant_possible_value(Package, Variant, Value),
+   build(Package).
 
 % Some multi valued variants accept multiple values from disjoint sets.
 % Ensure that we respect that constraint and we don't pick values from more
@@ -454,8 +457,11 @@ variant_default_value(Package, Variant, Value) :- variant_default_value_from_cli
 
 % Treat 'none' in a special way - it cannot be combined with other
 % values even if the variant is multi-valued
-:- 2 {variant_value(Package, Variant, Value): variant_possible_value(Package, Variant, Value)},
-   variant_value(Package, Variant, "none").
+:- 2 {
+     variant_value(Package, Variant, Value) : variant_possible_value(Package, Variant, Value)
+   },
+   variant_value(Package, Variant, "none"),
+   build(Package).
 
 % patches and dev_path are special variants -- they don't have to be
 % declared in the package, so we just allow them to spring into existence
@@ -578,7 +584,8 @@ target_weight(Target, Package, Weight)
 :- node_target(Package, Target),
    not compiler_supports_target(Compiler, Version, Target),
    node_compiler(Package, Compiler),
-   node_compiler_version(Package, Compiler, Version).
+   node_compiler_version(Package, Compiler, Version),
+   build(Package).
 
 % if a target is set explicitly, respect it
 node_target(Package, Target)
@@ -646,7 +653,8 @@ node_compiler_version(Package, Compiler, Version) :- node_compiler_version_set(P
 % are excluded from this check
 :- node_compiler_version(Package, Compiler, Version), node_os(Package, OS),
    not compiler_supports_os(Compiler, Version, OS),
-   not allow_compiler(Compiler, Version).
+   not allow_compiler(Compiler, Version),
+   build(Package).
 
 % If a package and one of its dependencies don't have the
 % same compiler there's a mismatch.
@@ -744,7 +752,7 @@ no_flags(Package, FlagType)
 impose(Hash) :- hash(Package, Hash).
 
 % if we haven't selected a hash for a package, we'll be building it
-build(Package) :- not hash(Package, _), node(Package).
+build(Package) :- not hash(Package, _), not external(Package), node(Package).
 
 #defined installed_hash/2.
 
