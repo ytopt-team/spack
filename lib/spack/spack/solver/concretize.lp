@@ -767,7 +767,8 @@ build(Package) :- not hash(Package, _), not external(Package), node(Package).
 % Try hard to reuse installed packages (i.e., minimize the number built)
 opt_criterion(16, "number of packages to build (vs. reuse)").
 #minimize { 0@16: #true }.
-#minimize { 1@16,Package : build(Package) }.
+#minimize { 1@16,Package : build(Package), optimize_for_reuse() }.
+#defined optimize_for_reuse/0.
 
 % Minimize the number of deprecated versions being used
 opt_criterion(15, "deprecated versions used").
@@ -872,4 +873,3 @@ opt_criterion(2, "target mismatches").
 opt_criterion(1, "non-preferred targets").
 #minimize{ 0@1: #true }.
 #minimize{ Weight@1,Package : node_target_weight(Package, Weight) }.
-
