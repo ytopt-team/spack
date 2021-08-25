@@ -26,6 +26,7 @@ from six import StringIO
 import archspec.cpu
 
 import llnl.util.filesystem as fs
+import llnl.util.lang as lang
 import llnl.util.tty as tty
 import llnl.util.tty.colify
 import llnl.util.tty.color as color
@@ -429,6 +430,9 @@ def make_argument_parser(**kwargs):
         '-m', '--mock', action='store_true',
         help="use mock packages instead of real ones")
     parser.add_argument(
+        '-b', '--bootstrap', action='store_true',
+        help="use bootstrap configuration (bootstrap store, config, externals)")
+    parser.add_argument(
         '-p', '--profile', action='store_true', dest='spack_profile',
         help="profile execution using cProfile")
     parser.add_argument(
@@ -794,7 +798,16 @@ def main(argv=None):
                        globals(), locals())
             return 0
         else:
-            return _invoke_command(command, parser, args, unknown)
+            # avoid circular imports
+            import spack.bootstrap as bootstrap
+
+            # use bootstrap context if asked
+            bootstrap_context = lang.nullcontext()
+            if args.bootstrap:
+                bootstrap_context = bootstrap.ensure_bootstrap_configuration()
+
+            with bootstrap_context:
+                return _invoke_command(command, parser, args, unknown)
 
     except SpackError as e:
         tty.debug(e)

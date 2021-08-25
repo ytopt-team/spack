@@ -38,6 +38,7 @@ except ImportError:
     pass
 
 import llnl.util.filesystem as fs
+import llnl.util.lang as lang
 import llnl.util.tty as tty
 
 import spack.repo
@@ -50,12 +51,6 @@ from spack.error import SpackError
 from spack.filesystem_view import YamlFilesystemView
 from spack.util.crypto import bit_length
 from spack.version import Version
-
-
-@contextlib.contextmanager
-def nullcontext(*args, **kwargs):
-    yield
-
 
 # TODO: Provide an API automatically retyring a build after detecting and
 # TODO: clearing a failure.
@@ -402,8 +397,8 @@ class Database(object):
             self._write_transaction_impl = lk.WriteTransaction
             self._read_transaction_impl = lk.ReadTransaction
         else:
-            self._write_transaction_impl = nullcontext
-            self._read_transaction_impl = nullcontext
+            self._write_transaction_impl = lang.nullcontext
+            self._read_transaction_impl = lang.nullcontext
 
         self._record_fields = record_fields
 

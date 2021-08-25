@@ -17,7 +17,7 @@ from typing import Optional  # novm
 import pytest
 
 import llnl.util.tty.log
-from llnl.util.lang import uniq
+from llnl.util.lang import nullcontext, uniq
 from llnl.util.tty.log import log_output
 from llnl.util.tty.pty import PseudoShell
 
@@ -29,11 +29,6 @@ try:
     termios = term_mod
 except ImportError:
     pass
-
-
-@contextlib.contextmanager
-def nullcontext():
-    yield
 
 
 def test_log_python_output_with_echo(capfd, tmpdir):

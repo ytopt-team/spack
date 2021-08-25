@@ -5,6 +5,7 @@
 
 from __future__ import division
 
+import contextlib
 import functools
 import inspect
 import multiprocessing
@@ -949,3 +950,11 @@ def elide_list(line_list, max_num=10):
         return line_list[:max_num - 1] + ['...'] + line_list[-1:]
     else:
         return line_list
+
+
+@contextlib.contextmanager
+def nullcontext(*args, **kwargs):
+    """Empty context manager.
+    TODO: replace with contextlib.nullcontext() if we ever require python 3.7.
+    """
+    yield
