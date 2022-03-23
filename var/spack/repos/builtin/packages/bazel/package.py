@@ -154,6 +154,13 @@ class Bazel(Package):
         'please use a newer release.'
     )
 
+    # for gcc11
+    # https://github.com/bazelbuild/bazel/commit/9761509f9ccc3892f42425b904adf1ef10bcb1f4
+    # https://github.com/bazelbuild/bazel/commit/8cc0e261a313dbf5e81bfeca2bafa3e12a991046
+    # backporting from version 5+
+    patch('patch_for_gcc11.patch', when='@0.20.0:4')
+    patch('patch_for_gcc11_2.patch', when='@0.20.0:4')
+
     patch('disabledepcheck.patch', when='@0.3.2:+nodepfail')
     patch('disabledepcheck_old.patch', when='@0.3.0:0.3.1+nodepfail')
 
